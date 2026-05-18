@@ -322,7 +322,7 @@
           <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
           Tabellone
         </span>
-        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Regole e tabellone (dopo le schede).</h2>
+        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Regole e tabellone.</h2>
       </div>
       <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted flex items-center gap-4">
         <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-ink"></span>campo 1</span>
@@ -855,6 +855,10 @@
 
   <!-- Toast -->
   <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-full bg-ink text-bone text-sm shadow-soft"></div>
+  <div id="globalLoader" class="global-loader hidden" role="status" aria-live="polite" aria-label="Caricamento dati">
+    <span class="global-loader-spinner" aria-hidden="true"></span>
+    <span id="globalLoaderText">Caricamento...</span>
+  </div>
 
   <div id="duplicateModal" class="fixed inset-0 z-[70] hidden">
     <div class="modal-scrim"></div>

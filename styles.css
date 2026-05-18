@@ -2694,3 +2694,60 @@ body { font-size: 17px; }
     display: none !important;
   }
 }
+
+/* ==========================================================
+   LOADER + SKELETON
+   ========================================================== */
+.global-loader {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--white);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-family: "Geist Mono", ui-monospace, monospace;
+  box-shadow: 0 10px 26px -18px rgba(17,17,17,0.35);
+}
+
+.global-loader-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid var(--hair);
+  border-top-color: var(--ink);
+  animation: spinLoader 0.7s linear infinite;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+.roster-skeleton-card {
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.standing-row-skeleton {
+  pointer-events: none;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--hair-soft) 0%, #ffffff 45%, var(--hair-soft) 100%);
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.1s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0% { background-position: 180% 0; }
+  100% { background-position: -20% 0; }
+}

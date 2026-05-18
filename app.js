@@ -180,6 +180,8 @@
     selectedPlayerIds: [],
     flagFiltered: [],
     flagActiveIndex: -1,
+    isSectionLoading: false,
+    pendingApiRequests: 0,
   };
 
   const editing = {
@@ -319,23 +321,45 @@
     btnTextInputCancel: $('#btnTextInputCancel'),
     btnTextInputOk: $('#btnTextInputOk'),
     toast: $('#toast'),
+    globalLoader: $('#globalLoader'),
+    globalLoaderText: $('#globalLoaderText'),
   };
 
+  function setGlobalLoader(active, message = 'Caricamento...') {
+    if (!refs.globalLoader) return;
+    if (refs.globalLoaderText) refs.globalLoaderText.textContent = message;
+    refs.globalLoader.classList.toggle('hidden', !active);
+  }
+
   async function api(path, opts = {}) {
+    const requestOptions = { ...opts };
+    const useLoader = requestOptions.loader !== false;
+    if (Object.prototype.hasOwnProperty.call(requestOptions, 'loader')) delete requestOptions.loader;
+    if (useLoader) {
+      state.pendingApiRequests += 1;
+      setGlobalLoader(true, 'Sincronizzazione dati...');
+    }
     const res = await fetch(`${API_BASE}${path}`, {
       headers: { 'Content-Type': 'application/json' },
-      ...opts,
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      ...requestOptions,
+      body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
     });
-    if (!res.ok) {
-      let message = `HTTP ${res.status}`;
-      try {
-        const data = await res.json();
-        if (data?.error) message = data.error;
-      } catch {}
-      throw new Error(message);
+    try {
+      if (!res.ok) {
+        let message = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {}
+        throw new Error(message);
+      }
+      return res.json();
+    } finally {
+      if (useLoader) {
+        state.pendingApiRequests = Math.max(0, state.pendingApiRequests - 1);
+        if (state.pendingApiRequests === 0) setGlobalLoader(false);
+      }
     }
-    return res.json();
   }
 
   function getCurrent() {
@@ -578,17 +602,25 @@
   }
 
   async function bootstrap() {
+    state.isSectionLoading = true;
+    renderRoster();
+    renderStandings();
     const payload = await api('/bootstrap');
     state.tournaments = payload.tournaments || [];
     state.currentId = payload.currentId;
     if (state.currentId) await loadTournament(state.currentId);
+    state.isSectionLoading = false;
   }
 
   async function loadTournament(id) {
+    state.isSectionLoading = true;
+    renderRoster();
+    renderStandings();
     const payload = await api(`/tournaments/${id}`);
     state.current = payload.tournament;
     state.currentId = payload.tournament.id;
     await loadSnapshots();
+    state.isSectionLoading = false;
     renderAll();
   }
 
@@ -860,6 +892,19 @@
   }
 
   function renderRoster() {
+    if (state.isSectionLoading) {
+      refs.rosterGrid.classList.remove('hidden');
+      refs.rosterEmpty.classList.add('hidden');
+      refs.rosterGrid.innerHTML = Array.from({ length: 6 }, () => `
+        <article class="player-card roster-skeleton-card">
+          <div class="skeleton-line w-2/3"></div>
+          <div class="skeleton-line w-1/2"></div>
+          <div class="skeleton-line w-full"></div>
+          <div class="skeleton-line w-full"></div>
+        </article>
+      `).join('');
+      return;
+    }
     const players = getPlayers();
     const size = getTournamentSize();
     const allIds = new Set(players.map((player) => String(player.id)));
@@ -965,6 +1010,17 @@
   }
 
   function renderStandings() {
+    if (state.isSectionLoading) {
+      refs.standingsList.innerHTML = Array.from({ length: 5 }, () => `
+        <div class="standing-row standing-row-skeleton">
+          <div class="skeleton-line w-8"></div>
+          <div class="skeleton-line w-32"></div>
+          <div class="skeleton-line w-16 ml-auto"></div>
+          <div class="skeleton-line w-16 ml-auto"></div>
+        </div>
+      `).join('');
+      return;
+    }
     const sorted = getPlayers()
       .slice()
       .sort((a, b) => (b.goals - a.goals) || (b.assists - a.assists) || a.name.localeCompare(b.name, 'it'));
@@ -1448,6 +1504,9 @@
       } else {
         const role = Array.isArray(player.roles) && player.roles.length ? player.roles[0] : (player.role || '—');
         const overall = computePlayerOverall(player);
+        const inCampoNote = player.pitchTakenElsewhere
+          ? '<span class="ml-1 text-[10px] text-muted">(gia in campo)</span>'
+          : '';
         row.innerHTML = `
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0 flex items-center gap-2">
@@ -1456,7 +1515,7 @@
             </div>
             <span class="font-mono text-[11px] shrink-0">OVR ${overall}</span>
           </div>
-          <div class="text-xs text-muted">${escapeHtml(role)} · G ${Number(player.goals) || 0} · A ${Number(player.assists) || 0}</div>
+          <div class="text-xs text-muted">${escapeHtml(role)} · G ${Number(player.goals) || 0} · A ${Number(player.assists) || 0}${inCampoNote}</div>
         `;
       }
       row.addEventListener('click', () => {
@@ -1703,7 +1762,21 @@
     };
     addTaken(match.lineupA);
     addTaken(match.lineupB);
-    return players.filter((player) => !takenIds.has(String(player.id)));
+    const side = String(ctx.side || '').toLowerCase() === 'b' ? 'b' : 'a';
+    const slotIndex = clamp(Number(ctx.slotIndex) || 0, 0, PLAYERS_PER_TEAM - 1);
+    const currentLineup = ensurePitchLineup(side === 'b' ? match.lineupB : match.lineupA, side);
+    const currentId = String(currentLineup[slotIndex]?.id || '');
+    return players
+      .map((player) => {
+        const pid = String(player.id);
+        const isTaken = takenIds.has(pid);
+        const isCurrentSlotPlayer = pid === currentId;
+        return {
+          ...player,
+          pitchTakenElsewhere: isTaken && !isCurrentSlotPlayer,
+        };
+      })
+      .sort((a, b) => Number(a.pitchTakenElsewhere) - Number(b.pitchTakenElsewhere));
   }
 
   async function chooseExistingPlayerForPitchSlot(ctx, suggestedName = '') {
@@ -1731,9 +1804,28 @@
     const lineupB = ensurePitchLineup(match.lineupB, 'b');
     const lineup = side === 'b' ? lineupB : lineupA;
     const fallback = (side === 'b' ? PITCH_RIGHT_POSITIONS : PITCH_LEFT_POSITIONS)[slotIndex];
+    const selectedId = String(player.id);
+
+    const removePlayerFromLineup = (arr, arrSide) => {
+      arr.forEach((entry, idx) => {
+        if (!sameId(entry?.id, selectedId)) return;
+        const defaults = arrSide === 'b' ? PITCH_RIGHT_POSITIONS : PITCH_LEFT_POSITIONS;
+        const fallbackPos = defaults[idx] || defaults[0];
+        arr[idx] = {
+          ...buildMissingPlaceholder(idx),
+          id: `missing-${arrSide}-${idx + 1}`,
+          x: Number.isFinite(Number(entry?.x)) ? Number(entry.x) : fallbackPos.x,
+          y: Number.isFinite(Number(entry?.y)) ? Number(entry.y) : fallbackPos.y,
+        };
+      });
+    };
+
+    // Allow selecting players already in pitch and move them to the new slot.
+    removePlayerFromLineup(lineupA, 'a');
+    removePlayerFromLineup(lineupB, 'b');
 
     lineup[slotIndex] = {
-      id: String(player.id),
+      id: selectedId,
       name: player.name || 'Senza nome',
       role: player.role || (Array.isArray(player.roles) && player.roles[0]) || '—',
       tec: normalizePlayerBaseScore(player.tec),
