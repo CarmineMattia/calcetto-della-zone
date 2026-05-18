@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Il Calcetto della Zone</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="description" content="Single page per organizzare il torneo di calcetto a Bibbiano: iscrizioni, giocatori e generatore squadre equilibrate." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['Geist Mono', 'ui-monospace', 'monospace'],
+            serif: ['Instrument Serif', 'Georgia', 'serif'],
+          },
+          colors: {
+            bone:     '#F7F6F3',
+            paper:    '#FBFBFA',
+            ink:      '#111111',
+            inkSoft:  '#2F3437',
+            muted:    '#787774',
+            hair:     '#EAEAEA',
+            field:    '#3C6B4F',
+            fieldSoft:'#EDF3EC',
+            warn:     '#956400',
+            warnSoft: '#FBF3DB',
+          },
+          borderRadius: {
+            xl2: '1.25rem',
+            squircle: '2rem',
+          },
+        }
+      }
+    };
+  </script>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-bone text-ink font-sans antialiased selection:bg-ink selection:text-bone">
+
+  <!-- Ambient texture: fixed grain overlay (no scroll repaint) -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- ============================================================== -->
+  <!-- TOP BAR — torneo corrente + storico + import/export             -->
+  <!-- ============================================================== -->
+  <header class="sticky top-0 z-40 backdrop-blur-xl bg-bone/70 border-b border-hair/70">
+    <div class="topbar-inner mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+
+      <div class="topbar-brand flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-md bg-white border border-hair grid place-items-center shadow-soft overflow-hidden">
+          <iconify-icon icon="twemoji:soccer-ball" width="20" height="20" aria-hidden="true"></iconify-icon>
+        </div>
+        <span class="topbar-brand-desktop font-mono text-[11px] tracking-[0.18em] uppercase text-muted">Il Calcetto delle Zone</span>
+      </div>
+
+      <!-- Tournament switcher -->
+      <div class="topbar-switcher ml-2 flex-1 min-w-0 flex items-center gap-2">
+        <div class="relative min-w-0 flex-1 max-w-md">
+          <button id="tournamentDropdownBtn" type="button"
+            class="w-full flex items-center gap-2 px-3 py-1.5 rounded-md border border-hair bg-paper hover:bg-white transition text-left">
+            <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+            <span id="currentTournamentName" class="truncate text-sm font-medium">Torneo</span>
+            <span id="currentTournamentDate" class="ml-auto font-mono text-[10px] text-muted shrink-0"></span>
+            <svg class="w-3.5 h-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="tournamentDropdown" class="hidden absolute z-50 left-0 right-0 mt-1.5 rounded-lg border border-hair bg-white shadow-soft overflow-hidden">
+            <div id="tournamentList" class="max-h-72 overflow-y-auto py-1"></div>
+            <div class="border-t border-hair p-1">
+              <button id="btnNewTournament" class="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-bone transition flex items-center gap-2">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+                Nuovo torneo
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-actions flex items-center gap-1.5 shrink-0">
+        <button id="btnArchive" title="Archivia torneo" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted hover:text-ink hover:bg-paper transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M9 11h6"/><path d="M10 4h4"/></svg>
+        </button>
+        <button id="btnHistory" title="Apri cronologia tornei" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted hover:text-ink hover:bg-paper transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v5l3 2"/><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button id="btnRename" title="Rinomina torneo" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted hover:text-ink hover:bg-paper transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21l3.75-.75L20.5 6.5a2.121 2.121 0 0 0-3-3L3.75 17.25 3 21z"/></svg>
+        </button>
+        <button id="btnNewTournamentTopbar" title="Nuovo torneo" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted hover:text-ink hover:bg-paper transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button id="navSchede" class="nav-pill active" type="button">Giocatori</button>
+        <button id="navClassifiche" class="nav-pill" type="button">Classifiche</button>
+        <button id="navTabellone" class="nav-pill" type="button">Tabellone</button>
+        <button id="navTimer" class="nav-pill" type="button">Timer</button>
+        <button id="btnHamburger" type="button" class="icon-btn-menu md:hidden" aria-controls="sideMenu" aria-expanded="false" aria-label="Apri menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div id="sideMenuBackdrop" class="side-menu-backdrop hidden" aria-hidden="true"></div>
+  <aside id="sideMenu" class="side-menu-panel" aria-hidden="true">
+    <div class="side-menu-head">
+      <span class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">Menu torneo</span>
+      <button id="sideMenuClose" type="button" class="icon-btn-menu" aria-label="Chiudi menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="side-menu-links">
+      <button type="button" class="side-menu-link" data-side-nav="schede">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-players">
+            <iconify-icon icon="ph:users-three-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Giocatori</span>
+        </span>
+        <span class="side-menu-link-kbd">Alt+1</span>
+      </button>
+      <button type="button" class="side-menu-link" data-side-nav="classifiche">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-standings">
+            <iconify-icon icon="ph:chart-bar-horizontal-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Classifiche</span>
+        </span>
+        <span class="side-menu-link-kbd">Alt+2</span>
+      </button>
+      <button type="button" class="side-menu-link" data-side-nav="tabellone">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-bracket">
+            <iconify-icon icon="ph:brackets-curly-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Tabellone</span>
+        </span>
+        <span class="side-menu-link-kbd">Alt+3</span>
+      </button>
+      <button type="button" class="side-menu-link" data-side-nav="cronologia">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-history">
+            <iconify-icon icon="ph:clock-counter-clockwise-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Cronologia tornei</span>
+        </span>
+        <span class="side-menu-link-kbd">Alt+4</span>
+      </button>
+      <button type="button" class="side-menu-link" data-side-nav="timer">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-timer">
+            <iconify-icon icon="ph:timer-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Timer partita</span>
+        </span>
+        <span class="side-menu-link-kbd">Alt+5</span>
+      </button>
+    </div>
+    <div class="side-menu-actions">
+      <div class="font-mono text-[10px] uppercase tracking-[0.16em] text-muted px-1">Azioni torneo</div>
+      <button type="button" id="btnMenuRename" class="side-menu-link side-menu-link-action">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-rename">
+            <iconify-icon icon="ph:pencil-simple-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Rinomina torneo</span>
+        </span>
+      </button>
+      <button type="button" id="btnMenuArchive" class="side-menu-link side-menu-link-action">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-archive">
+            <iconify-icon icon="ph:archive-box-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Archivia torneo</span>
+        </span>
+      </button>
+      <button type="button" id="btnMenuHistory" class="side-menu-link side-menu-link-action">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-history">
+            <iconify-icon icon="ph:clock-counter-clockwise-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Apri cronologia</span>
+        </span>
+      </button>
+      <button type="button" id="btnMenuNewTournament" class="side-menu-link side-menu-link-action">
+        <span class="side-menu-link-main">
+          <span class="side-menu-link-icon tone-new">
+            <iconify-icon icon="ph:plus-circle-fill" width="18" height="18" aria-hidden="true"></iconify-icon>
+          </span>
+          <span class="side-menu-link-text">Nuovo torneo</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============================================================== -->
+  <!-- HERO — visual-first, minimal text                              -->
+  <!-- ============================================================== -->
+  <section class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 lg:pt-20 pb-10 lg:pb-16">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+      <div class="lg:col-span-6 reveal">
+        <span class="section-eyebrow-pill">
+          <span class="w-1 h-1 rounded-full bg-field"></span>
+          Edizione · <span id="heroEdition" class="text-ink">2026</span>
+        </span>
+        <h1 class="mt-5 font-serif text-[clamp(2.3rem,6vw,4.8rem)] leading-[0.95] tracking-tight">
+          Il calcetto <em class="not-italic">delle zone</em>
+        </h1>
+        <p class="mt-4 text-sm text-muted">Organizzato male, giocato peggio.</p>
+        <a
+          href="https://www.google.com/maps/search/?api=1&query=Via+Fratelli+Corradini%2C+59%2C+42021+Bibbiano+RE"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-3 inline-flex items-center gap-2 rounded-full border border-hair bg-white px-3 py-1.5 text-sm hover:border-field/40 hover:bg-fieldSoft/30 transition"
+          aria-label="Apri posizione su Google Maps"
+        >
+          <svg viewBox="0 0 24 24" class="w-4 h-4 text-field" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 21s6-5.2 6-10a6 6 0 1 0-12 0c0 4.8 6 10 6 10z"/>
+            <circle cx="12" cy="11" r="2.2"/>
+          </svg>
+          <span><b>Bibbiano (RE)</b> · Emilia-Romagna, Italia</span>
+          <svg viewBox="0 0 24 24" class="w-4 h-4 text-field/80" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M14 5h5v5"></path>
+            <path d="M10 14L19 5"></path>
+            <path d="M19 14v5h-5"></path>
+            <path d="M5 10V5h5"></path>
+            <path d="M5 19l6-6"></path>
+          </svg>
+        </a>
+
+        <!-- icon-driven info strip — replaces the long paragraph -->
+        <div class="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-md">
+          <div class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 12h18M12 6v12"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+            <b>4</b><span>squadre</span>
+          </div>
+          <div id="heroPlayersChip" class="hero-chip hero-chip-players">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="8" r="3"/><path d="M3 21a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M14 21a5 5 0 0 1 8-3.5"/></svg>
+            <b id="heroPlayersValue">20</b><span id="heroPlayersLabel">giocatori</span>
+          </div>
+          <div class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <b>45</b><span>min/match</span>
+          </div>
+          <div class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 21V9l6-5 6 5v12"/><path d="M9 21V13h6v8"/></svg>
+            <b>2</b><span>campi</span>
+          </div>
+        </div>
+
+        <div class="mt-7 flex flex-wrap items-center gap-3">
+          <a href="#registra" class="cta-primary cta-lg group min-w-[250px] justify-between">
+            <span>Incolla la lista dei nomi</span>
+            <span class="cta-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </span>
+          </a>
+          <a href="#registra" class="text-sm text-muted hover:text-ink transition underline-offset-4 hover:underline">vai alle schede giocatori</a>
+        </div>
+
+        <!-- prize ribbon — single big visual statement, no paragraph -->
+        <div class="mt-8 inline-flex items-stretch rounded-xl overflow-hidden border border-hair bg-white">
+          <div class="px-3.5 py-2.5 bg-ink text-bone grid place-items-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-4 h-4"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v2a3 3 0 0 1-3 3M7 4H4v2a3 3 0 0 0 3 3"/></svg>
+          </div>
+          <div class="px-4 py-2.5">
+            <div class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">premio</div>
+            <div class="text-sm font-medium">Chi vince <span class="text-field">non paga</span> la quota</div>
+          </div>
+        </div>
+        <div id="generatorStatus" class="mt-4 bezel-shell max-w-xl">
+          <div class="bezel-core p-3.5 sm:p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+              <div>
+                <div class="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">stato</div>
+                <div id="generatorStatusText" class="mt-0.5 text-sm">Aggiungi giocatori per iniziare.</div>
+              </div>
+              <button id="btnGenerate" class="cta-primary cta-sm group w-full sm:w-auto shrink-0">
+                <span>Genera tabellone + formazioni</span>
+                <span class="cta-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA: board interattiva in alto -->
+      <div class="lg:col-span-6 reveal" style="--reveal-delay: 120ms">
+        <div class="bezel-shell p-3 sm:p-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">board partite · live</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">cta principale</span>
+          </div>
+          <div id="fieldBoardRoot" class="field-board-root" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- TABELLONE — visual bracket, minimal copy                       -->
+  <!-- ============================================================== -->
+  <section id="regole" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 lg:py-20 border-t border-hair">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8 reveal">
+      <div>
+        <span class="section-eyebrow-pill">
+          <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+          Tabellone
+        </span>
+        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Regole e tabellone (dopo le schede).</h2>
+      </div>
+      <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted flex items-center gap-4">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-ink"></span>campo 1</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-field"></span>campo 2</span>
+        <button id="btnResetBracket" type="button" class="underline-offset-4 hover:underline">reset tabellone</button>
+      </div>
+    </div>
+
+    <div class="bezel-shell reveal">
+      <div class="bezel-core p-5 sm:p-8">
+        <div class="bracket">
+          <!-- Round 1 -->
+          <div class="bracket-col">
+            <div class="bracket-label">Semifinali · 45'</div>
+            <div class="bracket-match field-1">
+              <div class="bm-row"><span class="bm-letter">A</span><button type="button" class="bm-name bracket-editable" data-default="Squadra A">Squadra A</button></div>
+              <div class="bm-row"><span class="bm-letter">B</span><button type="button" class="bm-name bracket-editable" data-default="Squadra B">Squadra B</button></div>
+              <span class="bm-pill bm-pill-ink">campo 1</span>
+            </div>
+            <div class="bracket-match field-2">
+              <div class="bm-row"><span class="bm-letter">C</span><button type="button" class="bm-name bracket-editable" data-default="Squadra C">Squadra C</button></div>
+              <div class="bm-row"><span class="bm-letter">D</span><button type="button" class="bm-name bracket-editable" data-default="Squadra D">Squadra D</button></div>
+              <span class="bm-pill bm-pill-field">campo 2</span>
+            </div>
+          </div>
+
+          <!-- Connector SVG -->
+          <svg class="bracket-lines" viewBox="0 0 120 360" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 80 H60 V180 H120" fill="none" stroke="#EAEAEA" stroke-width="1.5"/>
+            <path d="M0 280 H60 V180 H120" fill="none" stroke="#EAEAEA" stroke-width="1.5"/>
+            <path d="M0 80 H30" fill="none" stroke="#111111" stroke-width="1.5"/>
+            <path d="M0 280 H30" fill="none" stroke="#3C6B4F" stroke-width="1.5"/>
+          </svg>
+
+          <!-- Round 2 -->
+          <div class="bracket-col bracket-col-finals">
+            <div class="bracket-label">Finali</div>
+            <div class="bracket-match bracket-final-3">
+              <div class="bm-finals-label">3° / 4° posto</div>
+              <div class="bm-row muted"><span class="bm-letter">·</span><button type="button" class="bm-name bracket-editable" data-default="Perdente SF1">Perdente SF1</button></div>
+              <div class="bm-row muted"><span class="bm-letter">·</span><button type="button" class="bm-name bracket-editable" data-default="Perdente SF2">Perdente SF2</button></div>
+            </div>
+            <div class="bracket-match bracket-final-1">
+              <div class="bm-finals-label">1° / 2° posto</div>
+              <div class="bm-row"><span class="bm-letter">·</span><button type="button" class="bm-name bracket-editable" data-default="Vincente SF1">Vincente SF1</button></div>
+              <div class="bm-row"><span class="bm-letter">·</span><button type="button" class="bm-name bracket-editable" data-default="Vincente SF2">Vincente SF2</button></div>
+              <span class="bm-trophy" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-3.5 h-3.5"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v2a3 3 0 0 1-3 3M7 4H4v2a3 3 0 0 0 3 3"/></svg>
+              </span>
+            </div>
+          </div>
+
+          <!-- Connector SVG -->
+          <svg class="bracket-lines" viewBox="0 0 80 360" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 90 H40 V270 M0 270 H40" fill="none" stroke="#EAEAEA" stroke-width="1.5"/>
+            <path d="M40 270 H80" fill="none" stroke="#111111" stroke-width="2"/>
+          </svg>
+
+          <!-- Trophy -->
+          <div class="bracket-col bracket-col-prize">
+            <div class="bracket-label">Premio</div>
+            <div class="prize-card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="w-7 h-7"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v2a3 3 0 0 1-3 3M7 4H4v2a3 3 0 0 0 3 3"/></svg>
+              <div class="prize-title">Non paga<br/>la quota</div>
+              <div class="prize-sub">il vincitore</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- COME FUNZIONA — 3 PASSI CHIARI                                 -->
+  <!-- ============================================================== -->
+  <section id="come-funziona" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16 border-t border-hair">
+    <div class="reveal">
+      <span class="section-eyebrow-pill">
+        <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+        Come funziona
+      </span>
+      <h2 class="mt-3 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">3 passi. Fine.</h2>
+      <p class="mt-3 text-[16px] text-inkSoft max-w-2xl">Se hai poco tempo: incolla i nomi, completa le schede, premi genera.</p>
+
+      <div class="how-steps">
+        <article class="how-step how-step-1">
+          <span class="how-step-bg-num" aria-hidden="true">1</span>
+          <span class="how-step-emoji" aria-hidden="true">📋</span>
+          <span class="how-step-num-badge">PASSO 1</span>
+          <h3 class="how-step-title">Incolla i nomi</h3>
+          <p class="how-step-desc">Copia la lista da WhatsApp e incollala. Il sistema separa nomi su righe, virgole o punti e virgola.</p>
+          <a href="#registra" class="how-step-cta">Vai alle iscrizioni →</a>
+        </article>
+
+        <article class="how-step how-step-2">
+          <span class="how-step-bg-num" aria-hidden="true">2</span>
+          <span class="how-step-emoji" aria-hidden="true">🧩</span>
+          <span class="how-step-num-badge">PASSO 2</span>
+          <h3 class="how-step-title">Completa le schede</h3>
+          <p class="how-step-desc">Apri ogni giocatore e scegli ruolo, livello tecnico e fisico. Puoi anche selezionare piu ruoli.</p>
+          <a href="#registra" class="how-step-cta">Compila le schede →</a>
+        </article>
+
+        <article class="how-step how-step-3">
+          <span class="how-step-bg-num" aria-hidden="true">3</span>
+          <span class="how-step-emoji" aria-hidden="true">⚽</span>
+          <span class="how-step-num-badge">PASSO 3</span>
+          <h3 class="how-step-title">Genera le squadre</h3>
+          <p class="how-step-desc">Con un click ottieni 4 squadre bilanciate, pronte per il tabellone semifinali + finali.</p>
+          <a href="#genera" class="how-step-cta">Genera ora →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- BENTO — REGISTRAZIONE + ROSTER                                  -->
+  <!-- ============================================================== -->
+  <section id="registra" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 lg:py-24 border-t border-hair">
+
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-10 reveal">
+      <div>
+        <span class="section-eyebrow-pill">
+          <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+          Iscrizioni
+        </span>
+        <h2 class="mt-3 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Lista giocatori.</h2>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="font-mono text-sm">
+          <span id="rosterCount" class="text-2xl tabular-nums">0</span><span class="text-muted">/<span id="rosterMax">20</span> iscritti</span>
+          <span class="ml-3 text-muted">·</span>
+          <span id="completeCount" class="ml-3 tabular-nums">0</span><span class="text-muted"> completi</span>
+        </div>
+        <button id="btnDeleteSelected" type="button" class="px-3 py-2 rounded-md border border-hair text-sm bg-white hover:bg-bone disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          Elimina selezionati
+        </button>
+        <button id="btnDeleteAllPlayers" type="button" class="px-3 py-2 rounded-md border border-hair text-sm bg-white hover:bg-bone disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          Elimina tutti
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Quick paste -->
+      <aside class="lg:col-span-4 reveal">
+        <div class="bezel-shell lg:sticky lg:top-24">
+          <div class="bezel-core p-6 sm:p-7">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-ink text-bone grid place-items-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-4 h-4"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/><path d="M9.5 15.5l2.5 2 2.5-2"/></svg>
+              </div>
+              <div>
+                <h3 class="text-base font-medium tracking-tight leading-tight">Incolla i nomi</h3>
+                <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">una riga = un nome</span>
+              </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-lg border border-hair bg-paper/70">
+              <div class="flex items-center">
+                <input id="quickMyName" type="text" class="form-input" placeholder="Inserisci un nome" />
+              </div>
+              <p class="form-help">Se inserisci un solo nome puoi aprire la scheda dettagliata.</p>
+            </div>
+
+            <textarea id="bulkInput" rows="7"
+              class="mt-4 w-full resize-y rounded-lg border border-hair bg-bone/40 focus:bg-white px-3.5 py-3 text-sm leading-relaxed placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-ink/10 transition font-mono"
+              placeholder="Marco&#10;Luca&#10;Davide&#10;Stefano, Tommaso…"></textarea>
+            <p class="form-help">Tip: puoi scrivere <b>Mario +2</b> per creare Mario, Mario (1), Mario (2).</p>
+
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <span id="bulkPreview" class="font-mono text-[11px] text-muted">0 nomi</span>
+              <button id="btnBulkAdd" class="cta-primary cta-sm group">
+                <span>Aggiungi</span>
+                <span class="cta-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3 h-3"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </button>
+            </div>
+
+            <div class="mt-6 pt-5 border-t border-hair">
+              <button id="btnAddOne" class="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-hair bg-bone/40 hover:bg-white hover:border-ink/20 transition px-3 py-2.5 text-sm font-medium">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+                Scheda dettagliata
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Roster grid -->
+      <div class="lg:col-span-8">
+        <div id="rosterGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+        <!-- empty state -->
+        <div id="rosterEmpty" class="hidden">
+          <div class="bezel-shell">
+            <div class="bezel-core p-10 text-center">
+              <div class="mx-auto w-12 h-12 rounded-full border border-hair grid place-items-center text-muted">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="w-5 h-5"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>
+              </div>
+              <h3 class="mt-5 font-serif text-2xl leading-tight">Nessun giocatore ancora.</h3>
+              <p class="mt-2 text-sm text-muted max-w-md mx-auto">
+                Comincia dall'aggiunta rapida qui a sinistra: copia la lista dal gruppo WhatsApp e incollala.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- GENERATORE SQUADRE                                              -->
+  <!-- ============================================================== -->
+  <section id="genera" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 lg:py-24 border-t border-hair">
+    <div id="teamsOutput" class="hidden">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5" id="teamsGrid"></div>
+
+      <!-- bilancio -->
+      <div class="mt-8 bezel-shell">
+        <div class="bezel-core p-6 sm:p-7">
+          <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div class="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">bilanciamento</div>
+              <h3 class="mt-1 text-base font-medium tracking-tight">Confronto tra le squadre</h3>
+            </div>
+            <div class="font-mono text-[11px] text-muted">
+              σ tecnica <span id="stdTec" class="text-ink tabular-nums">—</span>
+              <span class="mx-2">·</span>
+              σ fisico <span id="stdFis" class="text-ink tabular-nums">—</span>
+            </div>
+          </div>
+          <div id="balanceBars" class="mt-6 space-y-5"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="classifiche" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 lg:py-20 border-t border-hair">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8 reveal">
+      <div>
+        <span class="section-eyebrow-pill">
+          <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+          Classifiche
+        </span>
+        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Gol e assist.</h2>
+      </div>
+      <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">aggiornamento live</div>
+    </div>
+    <div class="bezel-shell reveal">
+      <div class="bezel-core p-4 sm:p-6">
+        <div id="standingsList" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cronologia-tornei" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 lg:py-20 border-t border-hair">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8 reveal">
+      <div>
+        <span class="section-eyebrow-pill">
+          <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+          Cronologia tornei
+        </span>
+        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Snapshot archiviati.</h2>
+      </div>
+      <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">versioni immutabili</div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <aside class="lg:col-span-4 reveal">
+        <div class="bezel-shell">
+          <div class="bezel-core p-4 sm:p-5">
+            <div class="text-xs text-muted mb-2">Versioni disponibili</div>
+            <div id="snapshotList" class="space-y-2"></div>
+            <p id="snapshotEmpty" class="text-sm text-muted">Nessuno snapshot archiviato per questo torneo.</p>
+          </div>
+        </div>
+      </aside>
+      <div class="lg:col-span-8 reveal">
+        <div class="bezel-shell">
+          <div class="bezel-core p-4 sm:p-5">
+            <div id="snapshotDetail" class="space-y-4">
+              <p class="text-sm text-muted">Seleziona una versione per vedere giocatori, risultati, squadre, gol e assist salvati.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="timer-partita" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 lg:py-20 border-t border-hair">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-8 reveal">
+      <div>
+        <span class="section-eyebrow-pill">
+          <span class="w-1.5 h-1.5 rounded-full bg-field"></span>
+          Timer
+        </span>
+        <h2 class="mt-2 font-serif text-4xl sm:text-5xl leading-[1] tracking-tight">Timer partita.</h2>
+      </div>
+      <div class="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">conto alla rovescia</div>
+    </div>
+    <div class="bezel-shell reveal">
+      <div class="bezel-core p-4 sm:p-6">
+        <div id="matchTimerRoot" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- FOOTER                                                          -->
+  <!-- ============================================================== -->
+  <footer class="border-t border-hair">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="location-map" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="8" fill="#F7F6F3"/>
+            <path d="M4 22 L20 16 L36 24 L52 14 L60 20" stroke="#EAEAEA" stroke-width="1.2" fill="none"/>
+            <path d="M4 36 L18 30 L34 38 L48 32 L60 38" stroke="#EAEAEA" stroke-width="1.2" fill="none"/>
+            <path d="M4 50 L22 44 L38 50 L54 46 L60 50" stroke="#EAEAEA" stroke-width="1.2" fill="none"/>
+            <path d="M28 6 L28 58" stroke="#EAEAEA" stroke-width="1" fill="none"/>
+            <path d="M44 6 L44 58" stroke="#EAEAEA" stroke-width="1" fill="none"/>
+            <circle cx="32" cy="34" r="10" fill="#3C6B4F" fill-opacity="0.12"/>
+            <path d="M32 22 a8 8 0 0 1 8 8 c0 6 -8 14 -8 14 s-8 -8 -8 -14 a8 8 0 0 1 8 -8 z" fill="#111111"/>
+            <circle cx="32" cy="30" r="2.5" fill="#F7F6F3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="text-sm font-medium leading-tight">Bibbiano</div>
+          <div class="font-mono text-[10px] text-muted tracking-widest uppercase">RE · 44.83°N 10.46°E</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-[12px] text-muted">
+        <span class="flex items-center gap-1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          autosave
+        </span>
+        <span class="text-hair">·</span>
+        <button id="btnClearAll" class="underline-offset-4 hover:underline hover:text-ink transition">reset</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================================== -->
+  <!-- MODAL — EDIT PLAYER                                             -->
+  <!-- ============================================================== -->
+  <div id="playerModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-scrim" data-close-modal></div>
+    <div class="absolute inset-0 grid place-items-center p-4">
+      <div class="modal-panel bezel-shell w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="bezel-core">
+          <header class="flex items-center justify-between px-6 pt-5 pb-3 border-b border-hair">
+            <div>
+              <div class="font-mono text-[10px] uppercase tracking-[0.2em] text-muted" id="modalSubtitle">nuova scheda</div>
+              <h3 id="modalTitle" class="mt-1 font-serif text-2xl leading-none">Scheda giocatore</h3>
+            </div>
+            <button data-close-modal class="w-9 h-9 rounded-full border border-hair grid place-items-center text-muted hover:text-ink hover:border-ink/20 transition" aria-label="Chiudi">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </header>
+
+          <form id="playerForm" class="px-6 py-5 space-y-5" novalidate>
+            <input type="hidden" id="fieldId" />
+
+            <div>
+              <label for="fieldName" class="form-label">Username</label>
+              <input id="fieldName" type="text" required maxlength="32" autocomplete="off"
+                class="form-input" placeholder="es. Marco, MarcoZanetti, Zane10" />
+              <p class="form-help">Come lo chiamano in campo.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="fieldNationality" class="form-label">Nazionalità</label>
+                <div class="relative">
+                  <button type="button" id="fieldNationality" class="form-input flex items-center gap-2 text-left">
+                    <span id="flagPreview" class="flag-chip">🏳️</span>
+                    <span id="flagName" class="truncate">Seleziona…</span>
+                    <svg class="w-3.5 h-3.5 text-muted ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  <div id="flagPicker" class="hidden absolute z-40 left-0 right-0 mt-1 rounded-lg border border-hair bg-white shadow-soft overflow-hidden">
+                    <input id="flagSearch" type="text" placeholder="Cerca paese…"
+                      class="w-full px-3 py-2 text-sm border-b border-hair focus:outline-none" />
+                    <div id="flagList" class="max-h-60 overflow-y-auto py-1"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label for="fieldAge" class="form-label">Età</label>
+                <input id="fieldAge" type="number" min="10" max="80" inputmode="numeric"
+                  class="form-input font-mono" placeholder="es. 28" />
+                <p class="form-help">In anni.</p>
+              </div>
+            </div>
+
+            <div>
+              <span class="form-label">Ruolo</span>
+              <div id="roleGroup" class="mt-1.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" class="role-chip" data-role="Portiere">
+                  <span class="role-abbr">GK</span><span>Portiere</span>
+                </button>
+                <button type="button" class="role-chip" data-role="Difensore">
+                  <span class="role-abbr">DF</span><span>Difensore</span>
+                </button>
+                <button type="button" class="role-chip" data-role="Centrocampista">
+                  <span class="role-abbr">MF</span><span>Centroc.</span>
+                </button>
+                <button type="button" class="role-chip" data-role="Attaccante">
+                  <span class="role-abbr">FW</span><span>Attaccante</span>
+                </button>
+              </div>
+              <p class="form-help">Puoi selezionare piu ruoli/posizioni.</p>
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between">
+                <label for="fieldTec" class="form-label">Qualità tecniche</label>
+                <span class="font-mono text-[12px] flex items-center gap-2">
+                  <span><span id="tecValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  <span id="tecTier" class="rating-tier-badge" data-tier="scarso">Scarsino</span>
+                </span>
+              </div>
+              <input id="fieldTec" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+              <div class="rating-track-labels"><span>0</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span></div>
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between">
+                <label for="fieldFis" class="form-label">Qualità fisiche</label>
+                <span class="font-mono text-[12px] flex items-center gap-2">
+                  <span><span id="fisValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  <span id="fisTier" class="rating-tier-badge" data-tier="scarso">Scarsino</span>
+                </span>
+              </div>
+              <input id="fieldFis" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+              <div class="rating-track-labels"><span>0</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span></div>
+            </div>
+
+            <div class="overall-panel">
+              <div class="overall-head">
+                <span class="form-label !mb-0">Overall stimato</span>
+                <span class="font-mono text-[12px]">
+                  <span id="overallValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span>
+                </span>
+              </div>
+              <div class="overall-foot">
+                <span id="overallTier" class="rating-tier-badge" data-tier="scarso">Scarsino</span>
+                <span class="overall-help">Soglie fisse: 60+ sufficiente, 70+ ok, 80+ ottimo, 90+ top player.</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div id="goalsBox" class="stat-counter">
+                <span class="form-label !mb-1">Gol</span>
+                <div class="counter-row">
+                  <button type="button" id="btnGoalsMinus" class="counter-btn">−</button>
+                  <span id="fieldGoals" class="counter-value">0</span>
+                  <button type="button" id="btnGoalsPlus" class="counter-btn">+</button>
+                </div>
+              </div>
+              <div id="assistsBox" class="stat-counter">
+                <span class="form-label !mb-1">Assist</span>
+                <div class="counter-row">
+                  <button type="button" id="btnAssistsMinus" class="counter-btn">−</button>
+                  <span id="fieldAssists" class="counter-value">0</span>
+                  <button type="button" id="btnAssistsPlus" class="counter-btn">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button id="btnToggleDetails" type="button" class="inline-flex items-center gap-2 rounded-md border border-hair bg-bone/40 hover:bg-white hover:border-ink/20 transition px-3 py-1.5 text-xs font-medium">
+                <span class="inline-grid place-items-center w-4 h-4 rounded-full border border-hair text-[11px] leading-none">+</span>
+                Dettaglio tecnico (opzionale)
+              </button>
+              <div id="techDetailsPanel" class="hidden mt-3 p-3 rounded-lg border border-hair bg-bone/30 space-y-3">
+                <div>
+                  <div class="flex items-baseline justify-between">
+                    <label for="fieldDetailSpeed" class="form-label !mb-0">Velocita</label>
+                    <span class="font-mono text-[12px]"><span id="detailSpeedValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  </div>
+                  <input id="fieldDetailSpeed" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+                </div>
+                <div>
+                  <div class="flex items-baseline justify-between">
+                    <label for="fieldDetailPassing" class="form-label !mb-0">Passaggio</label>
+                    <span class="font-mono text-[12px]"><span id="detailPassingValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  </div>
+                  <input id="fieldDetailPassing" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+                </div>
+                <div>
+                  <div class="flex items-baseline justify-between">
+                    <label for="fieldDetailPhysical" class="form-label !mb-0">Fisico</label>
+                    <span class="font-mono text-[12px]"><span id="detailPhysicalValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  </div>
+                  <input id="fieldDetailPhysical" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+                </div>
+                <div>
+                  <div class="flex items-baseline justify-between">
+                    <label for="fieldDetailDefense" class="form-label !mb-0">Difesa</label>
+                    <span class="font-mono text-[12px]"><span id="detailDefenseValue" class="text-ink tabular-nums">85</span><span class="text-muted">/100</span></span>
+                  </div>
+                  <input id="fieldDetailDefense" type="range" min="0" max="100" step="1" value="85" class="rating-slider mt-1.5" />
+                </div>
+              </div>
+            </div>
+
+            <p id="formError" class="hidden text-[12px] text-[#9F2F2D]"></p>
+          </form>
+
+          <footer class="flex items-center justify-between gap-3 px-6 py-4 border-t border-hair bg-bone/30">
+            <button id="btnDeletePlayer" type="button" class="hidden text-[13px] text-muted hover:text-[#9F2F2D] transition inline-flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              <span id="btnDeletePlayerLabel">Elimina</span>
+            </button>
+            <div class="ml-auto flex items-center gap-2">
+              <button type="button" data-close-modal class="px-4 py-2 rounded-md text-sm text-muted hover:text-ink transition">Annulla</button>
+              <button id="btnSavePlayer" type="button" class="cta-primary cta-sm">
+                <span>Salva scheda</span>
+              </button>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-full bg-ink text-bone text-sm shadow-soft"></div>
+
+  <div id="duplicateModal" class="fixed inset-0 z-[70] hidden">
+    <div class="modal-scrim"></div>
+    <div class="absolute inset-0 grid place-items-center p-4">
+      <div class="bezel-shell w-full max-w-xl">
+        <div class="bezel-core p-5 sm:p-6">
+          <h3 class="font-serif text-2xl">Nome già presente</h3>
+          <p class="mt-2 text-sm text-muted">Questo nome sembra gia presente (anche in questo torneo). Scegli se riusare la scheda o crearne una nuova.</p>
+          <div id="duplicateList" class="mt-4 max-h-52 overflow-y-auto space-y-2"></div>
+          <div class="mt-5 flex items-center justify-end gap-2">
+            <button type="button" id="btnDuplicateCancel" class="px-3 py-2 rounded-md text-sm text-muted hover:text-ink">Annulla</button>
+            <button type="button" id="btnDuplicateNew" class="px-3 py-2 rounded-md border border-hair text-sm hover:bg-bone">Nuovo profilo</button>
+            <button type="button" id="btnDuplicateReuse" class="cta-primary cta-sm"><span>Riusa profilo</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pitchSelectModal" class="fixed inset-0 z-[72] hidden">
+    <div class="modal-scrim" data-close-pitch-select></div>
+    <div class="absolute inset-0 grid place-items-center p-4">
+      <div class="bezel-shell w-full max-w-xl">
+        <div class="bezel-core p-5 sm:p-6">
+          <h3 id="pitchSelectTitle" class="font-serif text-2xl">Seleziona giocatore</h3>
+          <p class="mt-2 text-sm text-muted">Scegli un giocatore esistente da inserire nello slot, oppure crea una nuova scheda.</p>
+          <div class="mt-3">
+            <input id="pitchSelectSearch" type="text" class="form-input" placeholder="Cerca per nome o ruolo..." autocomplete="off" />
+          </div>
+          <div id="pitchSelectList" class="mt-4 max-h-64 overflow-y-auto space-y-2"></div>
+          <p id="pitchSelectEmpty" class="hidden mt-3 text-sm text-muted">Nessun giocatore trovato con questo filtro.</p>
+          <div class="mt-5 flex items-center justify-end gap-2">
+            <button type="button" id="btnPitchSelectCancel" class="px-3 py-2 rounded-md text-sm text-muted hover:text-ink">Annulla</button>
+            <button type="button" id="btnPitchSelectNew" class="px-3 py-2 rounded-md border border-hair text-sm hover:bg-bone">Nuova scheda</button>
+            <button type="button" id="btnPitchSelectUse" class="cta-primary cta-sm"><span>Usa selezionato</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="fixed inset-0 z-[74] hidden">
+    <div class="modal-scrim" data-close-confirm></div>
+    <div class="absolute inset-0 grid place-items-center p-4">
+      <div class="bezel-shell w-full max-w-md">
+        <div class="bezel-core p-5 sm:p-6">
+          <h3 id="confirmTitle" class="font-serif text-2xl">Conferma azione</h3>
+          <p id="confirmMessage" class="mt-2 text-sm text-muted">Sei sicuro di voler continuare?</p>
+          <div class="mt-5 flex items-center justify-end gap-2">
+            <button type="button" id="btnConfirmCancel" class="px-3 py-2 rounded-md text-sm text-muted hover:text-ink">Annulla</button>
+            <button type="button" id="btnConfirmOk" class="cta-primary cta-sm"><span>Conferma</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="textInputModal" class="fixed inset-0 z-[73] hidden">
+    <div class="modal-scrim" data-close-text-input></div>
+    <div class="absolute inset-0 grid place-items-center p-4">
+      <div class="bezel-shell w-full max-w-md">
+        <div class="bezel-core p-5 sm:p-6">
+          <h3 id="textInputTitle" class="font-serif text-2xl">Inserisci testo</h3>
+          <p id="textInputMessage" class="mt-2 text-sm text-muted">Scrivi il valore desiderato.</p>
+          <div class="mt-4">
+            <input id="textInputField" class="form-input" type="text" autocomplete="off" />
+          </div>
+          <div class="mt-5 flex items-center justify-end gap-2">
+            <button type="button" id="btnTextInputCancel" class="px-3 py-2 rounded-md text-sm text-muted hover:text-ink">Annulla</button>
+            <button type="button" id="btnTextInputOk" class="cta-primary cta-sm"><span>Salva</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+  <script type="module" src="frontend/field-board-app.js"></script>
+</body>
+</html>
