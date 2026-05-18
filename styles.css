@@ -1100,6 +1100,15 @@ input[type="number"] { -moz-appearance: textfield; }
 .modal-open { overflow: hidden; }
 
 .pc-flag {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bone);
+  border: 1px solid var(--hair);
+  flex: 0 0 auto;
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 
