@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const {
@@ -10,6 +12,7 @@ const tournamentRoutes = require('./routes/tournaments');
 const playerRoutes = require('./routes/players');
 const statsRoutes = require('./routes/stats');
 const bracketRoutes = require('./routes/bracket');
+const supabaseRoutes = require('./routes/supabase');
 
 initDb();
 ensureSeedTournament();
@@ -26,6 +29,7 @@ app.use('/api/tournaments', tournamentRoutes);
 app.use('/api', playerRoutes);
 app.use('/api', statsRoutes);
 app.use('/api', bracketRoutes);
+app.use('/api/supabase', supabaseRoutes);
 
 app.get('/api/bootstrap', (_req, res) => {
   const tournaments = db.prepare(`
