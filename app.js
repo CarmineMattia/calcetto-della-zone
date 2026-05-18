@@ -1,7 +1,19 @@
 (() => {
   'use strict';
 
-  const API_BASE = 'http://localhost:3100/api';
+  const LOCAL_API_BASE = 'http://localhost:3100/api';
+  const PROD_API_BASE = 'https://poqpxcgfslqlinxdnejq.supabase.co/functions/v1/api';
+  const API_BASE = (() => {
+    const fromWindow = typeof window.__TORNEO_API_BASE__ === 'string'
+      ? window.__TORNEO_API_BASE__.trim()
+      : '';
+    if (fromWindow) return fromWindow;
+    const fromStorage = window.localStorage?.getItem('TORNEO_API_BASE')?.trim();
+    if (fromStorage) return fromStorage;
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    return isLocal ? LOCAL_API_BASE : PROD_API_BASE;
+  })();
   window.__TORNEO_API_BASE__ = API_BASE;
   const DEFAULT_TEAM_COUNT = 4;
   const ALLOWED_TEAM_COUNTS = [4];
